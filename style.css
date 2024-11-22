@@ -1,0 +1,11 @@
+/**
+ * All of the CSS for your admin-specific functionality should be
+ * included in this file.
+ */
+
+.dashicons-soft-expert{
+    background-image: url(./assets/images/soft-expert-ico.png);
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: 22px;
+}
