@@ -323,6 +323,7 @@
             const menuId = $button.data('menu-id');
             const $spinner = $('#loading-' + menuId);
             const skipEmpty = $('#skip-empty').is(':checked');
+            const menuDepth = $('#menu-depth').val();
 
             // Show loading state
             $button.prop('disabled', true);
@@ -338,6 +339,7 @@
                     action: "update_menu",
                     menu_id: menuId,
                     skip_empty: skipEmpty,
+                    menu_depth: menuDepth,
                     nonce_ajax: wmg_ajax.nonce
                 },
                 dataType: "json",
@@ -384,6 +386,7 @@
             const $spinner = $('#loading-new');
             const menuName = $('#menu-name').val();
             const skipEmpty = $('#skip-empty').is(':checked');
+            const menuDepth = $('#menu-depth').val();
 
             // Validate input
             if (!menuName) {
@@ -403,6 +406,7 @@
                 action: "generate_menu",
                 menu_name: menuName,
                 skip_empty: skipEmpty,
+                menu_depth: menuDepth,
                 nonce_ajax: wmg_ajax.nonce
             };
 

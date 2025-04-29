@@ -160,6 +160,17 @@ function wmg_render_menu_page()
                     <input type="text" id="menu-name" name="menu-name" class="wmg-input" placeholder="<?php esc_attr_e('Enter menu name', 'woocommerce-menu-generator'); ?>" required>
                 </div>
                 
+                <div class="wmg-field-row">
+                    <label for="menu-depth" class="wmg-label"><?php _e('Menu Depth:', 'woocommerce-menu-generator'); ?></label>
+                    <select id="menu-depth" name="menu-depth" class="wmg-input">
+                        <option value="0"><?php _e('All levels (unlimited depth)', 'woocommerce-menu-generator'); ?></option>
+                        <option value="1"><?php _e('Top level categories only', 'woocommerce-menu-generator'); ?></option>
+                        <option value="2"><?php _e('Top level + one subcategory level', 'woocommerce-menu-generator'); ?></option>
+                        <option value="3"><?php _e('Top level + two subcategory levels', 'woocommerce-menu-generator'); ?></option>
+                    </select>
+                    <p class="wmg-field-description"><?php _e('Select how many levels of subcategories to include in the menu.', 'woocommerce-menu-generator'); ?></p>
+                </div>
+                
                 <?php 
                 // Allow plugins to add custom fields
                 do_action('wmg_form_fields'); 
@@ -321,6 +332,17 @@ function wmg_render_menu_page()
                     <input type="text" id="menu-name" name="menu-name" class="wmg-input" placeholder="<?php esc_attr_e('Enter menu name', 'woocommerce-menu-generator'); ?>" required>
                 </div>
                 
+                <div class="wmg-field-row">
+                    <label for="menu-depth" class="wmg-label"><?php _e('Menu Depth:', 'woocommerce-menu-generator'); ?></label>
+                    <select id="menu-depth" name="menu-depth" class="wmg-input">
+                        <option value="0"><?php _e('All levels (unlimited depth)', 'woocommerce-menu-generator'); ?></option>
+                        <option value="1"><?php _e('Top level categories only', 'woocommerce-menu-generator'); ?></option>
+                        <option value="2"><?php _e('Top level + one subcategory level', 'woocommerce-menu-generator'); ?></option>
+                        <option value="3"><?php _e('Top level + two subcategory levels', 'woocommerce-menu-generator'); ?></option>
+                    </select>
+                    <p class="wmg-field-description"><?php _e('Select how many levels of subcategories to include in the menu.', 'woocommerce-menu-generator'); ?></p>
+                </div>
+                
                 <?php 
                 // Allow plugins to add custom fields
                 do_action('wmg_form_fields'); 
@@ -399,6 +421,7 @@ function wmg_generate_menu()
     endif;
     $menu_name = isset($_POST['menu_name']) ? sanitize_text_field($_POST['menu_name']) : '';
     $skip_empty = $_POST['skip_empty'] == 'true';
+    $menu_depth = isset($_POST['menu_depth']) ? intval($_POST['menu_depth']) : 0; // Get menu depth parameter
 
    
     if (!empty($menu_name)):
@@ -428,7 +451,7 @@ function wmg_generate_menu()
 
         update_option('woo_registered_menus_from_wmg', $registered_menus);
 
-        wmg_add_items_to_menu($menu_id, $skip_empty);
+        wmg_add_items_to_menu($menu_id, $skip_empty, $menu_depth); // Pass the menu depth
 
         $msg = sprintf(__('Menu "%s" has been successfully created.', 'woocommerce-menu-generator'), $menu_name);
         wp_send_json_success($msg, 200);
@@ -440,8 +463,9 @@ function wmg_generate_menu()
 /**
  * @param $menu_id
  * @param false $skip
+ * @param int $depth Maximum depth of subcategories to include (0 = unlimited)
  */
-function wmg_add_items_to_menu($menu_id, $skip = false)
+function wmg_add_items_to_menu($menu_id, $skip = false, $depth = 0)
 {
     // add menu items
     $categories = $skip ?
@@ -465,7 +489,10 @@ function wmg_add_items_to_menu($menu_id, $skip = false)
             );
             $menu_item_id = wp_update_nav_menu_item($menu_id, 0, $menu_item_data);
 
-            add_subcategories_to_menu($categories, $menu_id, $menu_item_id, $category->term_id);
+            // Only add subcategories if depth is 0 (unlimited) or greater than 1
+            if ($depth === 0 || $depth > 1) {
+                add_subcategories_to_menu($categories, $menu_id, $menu_item_id, $category->term_id, $depth, 2);
+            }
         }
     }
 
@@ -478,11 +505,18 @@ function wmg_add_items_to_menu($menu_id, $skip = false)
  * @param $menu_id
  * @param $parent_menu_item_id
  * @param $parent_category_id
+ * @param int $max_depth Maximum depth to include (0 = unlimited)
+ * @param int $current_depth Current depth level (starts at 2 for first level of subcategories)
  *
  * Recursive add subcategories
  */
-function add_subcategories_to_menu($categories, $menu_id, $parent_menu_item_id, $parent_category_id)
+function add_subcategories_to_menu($categories, $menu_id, $parent_menu_item_id, $parent_category_id, $max_depth = 0, $current_depth = 2)
 {
+    // If we've reached the maximum depth, stop recursion
+    if ($max_depth > 0 && $current_depth > $max_depth) {
+        return;
+    }
+
     foreach ($categories as $subcategory) {
         if ($subcategory->parent == $parent_category_id) {
             $submenu_item_data = array(
@@ -495,7 +529,10 @@ function add_subcategories_to_menu($categories, $menu_id, $parent_menu_item_id, 
             );
             $submenu_item_id = wp_update_nav_menu_item($menu_id, 0, $submenu_item_data);
 
-            add_subcategories_to_menu($categories, $menu_id, $submenu_item_id, $subcategory->term_id);
+            // Continue recursion for next level if depth allows
+            if ($max_depth === 0 || $current_depth < $max_depth) {
+                add_subcategories_to_menu($categories, $menu_id, $submenu_item_id, $subcategory->term_id, $max_depth, $current_depth + 1);
+            }
         }
     }
 }
@@ -558,6 +595,8 @@ function wmg_update_menu()
 
     if (isset($_POST['menu_id'])):
         $menu_id = intval($_POST['menu_id']);
+        $skip_empty = isset($_POST['skip_empty']) ? $_POST['skip_empty'] == 'true' : false;
+        $menu_depth = isset($_POST['menu_depth']) ? intval($_POST['menu_depth']) : 0;
         
         // Check if the menu exists before attempting to update
         $menu = wp_get_nav_menu_object($menu_id);
@@ -574,7 +613,7 @@ function wmg_update_menu()
             wp_delete_post($menu_item->ID, true);
         }
 
-        wmg_add_items_to_menu($menu_id);
+        wmg_add_items_to_menu($menu_id, $skip_empty, $menu_depth);
         $msg = sprintf(__('Menu "%s" has been successfully updated.', 'woocommerce-menu-generator'), $menu->name);
         wp_send_json_success($msg, 200);
     endif;
