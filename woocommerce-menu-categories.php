@@ -5,13 +5,15 @@
  * Description: A plugin to generate a new WordPress navigation menu with all WooCommerce categories as menu items.
  * Version: 1.0.0
  * Author: Your Name
- * Text Domain: woocommerce-menu-generator
- * Domain Path: /languages
+ * Text Domain: Woocommerce-Menu-Generator
+ * Domain Path: /languages/
+ * License: GPL-2.0+
+ * License URI: http://www.gnu.org/licenses/gpl-2.0.txt
  */
 
 // Load plugin text domain
 function wmg_load_textdomain() {
-    load_plugin_textdomain('woocommerce-menu-generator', false, dirname(plugin_basename(__FILE__)) . '/languages');
+    load_plugin_textdomain('Woocommerce-Menu-Generator', false, dirname(plugin_basename(__FILE__)) . '/languages/');
 }
 add_action('plugins_loaded', 'wmg_load_textdomain');
 
@@ -29,20 +31,20 @@ function wmg_enqueue_scripts()
         'ajaxurl' => plugin_dir_url(__FILE__) . 'wmg-ajax.php',
         'nonce' => wp_create_nonce('wmg-script-nonce'),
         'error_messages' => [
-            'general' => __('An error occurred. Please try again.', 'woocommerce-menu-generator'),
-            'invalid_response' => __('Invalid response from server. Please try again.', 'woocommerce-menu-generator'),
-            'no_action' => __('Please select an action to perform.', 'woocommerce-menu-generator'),
-            'no_selection' => __('Please select at least one menu to perform this action.', 'woocommerce-menu-generator'),
-            'empty_name' => __('Please enter a menu name.', 'woocommerce-menu-generator'),
-            'delete' => __('An error occurred while deleting. Please try again.', 'woocommerce-menu-generator'),
-            'update' => __('An error occurred during update. Please try again.', 'woocommerce-menu-generator'),
-            'generate' => __('An error occurred during menu generation. Please try again.', 'woocommerce-menu-generator'),
-            'bulk_delete' => __('An error occurred during bulk delete. Please try again.', 'woocommerce-menu-generator')
+            'general' => esc_html__('An error occurred. Please try again.', 'Woocommerce-Menu-Generator'),
+            'invalid_response' => esc_html__('Invalid response from server. Please try again.', 'Woocommerce-Menu-Generator'),
+            'no_action' => esc_html__('Please select an action to perform.', 'Woocommerce-Menu-Generator'),
+            'no_selection' => esc_html__('Please select at least one menu to perform this action.', 'Woocommerce-Menu-Generator'),
+            'empty_name' => esc_html__('Please enter a menu name.', 'Woocommerce-Menu-Generator'),
+            'delete' => esc_html__('An error occurred while deleting. Please try again.', 'Woocommerce-Menu-Generator'),
+            'update' => esc_html__('An error occurred during update. Please try again.', 'Woocommerce-Menu-Generator'),
+            'generate' => esc_html__('An error occurred during menu generation. Please try again.', 'Woocommerce-Menu-Generator'),
+            'bulk_delete' => esc_html__('An error occurred during bulk delete. Please try again.', 'Woocommerce-Menu-Generator')
         ],
         'confirm_messages' => [
-            'delete' => __('Are you sure you want to delete this menu? This action cannot be undone.', 'woocommerce-menu-generator'),
-            'update' => __('Are you sure you want to update this menu? This will regenerate all menu items.', 'woocommerce-menu-generator'),
-            'bulk_delete' => __('Are you sure you want to delete the selected menus? This action cannot be undone.', 'woocommerce-menu-generator')
+            'delete' => esc_html__('Are you sure you want to delete this menu? This action cannot be undone.', 'Woocommerce-Menu-Generator'),
+            'update' => esc_html__('Are you sure you want to update this menu? This will regenerate all menu items.', 'Woocommerce-Menu-Generator'),
+            'bulk_delete' => esc_html__('Are you sure you want to delete the selected menus? This action cannot be undone.', 'Woocommerce-Menu-Generator')
         ]
     ];
 
@@ -64,8 +66,8 @@ function woocommerce_menu_generator_register_menu_page()
 {
     add_submenu_page(
         'woocommerce',
-        __('Woo Menu Generator', 'woocommerce-menu-generator'),
-        __('Woo Menu Generator', 'woocommerce-menu-generator'),
+        esc_html__('Woo Menu Generator', 'Woocommerce-Menu-Generator'),
+        esc_html__('Woo Menu Generator', 'Woocommerce-Menu-Generator'),
         'manage_options',
         'woo-menu-generator',
         'wmg_render_menu_page'
@@ -81,7 +83,7 @@ function wmg_render_menu_page()
     $my_menus = get_option('woo_registered_menus_from_wmg', array());
 
     if (!current_user_can('manage_options')) {
-        wp_die(__('You do not have sufficient permissions to access this page.', 'woocommerce-menu-generator'));
+        wp_die(esc_html__('You do not have sufficient permissions to access this page.', 'Woocommerce-Menu-Generator'));
     }
 
     // Calculate statistics
@@ -108,15 +110,15 @@ function wmg_render_menu_page()
         <!-- Simplified Loading Overlay -->
         <div id="wmg-loading-overlay" class="wmg-loading-overlay">
             <div class="wmg-loading-spinner"></div>
-            <div class="wmg-loading-text"><?php _e('Working Magic', 'woocommerce-menu-generator'); ?></div>
-            <div class="wmg-loading-subtext"><?php _e('Creating menus in progress...', 'woocommerce-menu-generator'); ?></div>
+            <div class="wmg-loading-text"><?php esc_html_e('Working Magic', 'Woocommerce-Menu-Generator'); ?></div>
+            <div class="wmg-loading-subtext"><?php esc_html_e('Creating menus in progress...', 'Woocommerce-Menu-Generator'); ?></div>
         </div>
         
         <div class="wmg-header">
             <h1 class="wmg-heading"><?php echo esc_html(get_admin_page_title()); ?> </h1>
             <div class="wmg-docs-link">
                 <a href="<?php echo esc_url(plugin_dir_url(__FILE__) . 'hooks-documentation.html'); ?>" target="_blank" class="wmg-link">
-                    <?php _e('Developer Documentation', 'woocommerce-menu-generator'); ?>
+                    <?php esc_html_e('Developer Documentation', 'Woocommerce-Menu-Generator'); ?>
                     <span class="dashicons dashicons-external"></span>
                 </a>
             </div>
@@ -130,19 +132,19 @@ function wmg_render_menu_page()
         
         <!-- Stats Section -->
         <div class="wmg-stats">
-            <h2 class="wmg-stats-heading"><?php _e('Menu Statistics', 'woocommerce-menu-generator'); ?></h2>
+            <h2 class="wmg-stats-heading"><?php esc_html_e('Menu Statistics', 'Woocommerce-Menu-Generator'); ?></h2>
             <div class="wmg-stats-grid">
                 <div class="wmg-stat-card">
                     <div class="wmg-stat-number"><?php echo esc_html($stats['total_menus']); ?></div>
-                    <div class="wmg-stat-label"><?php _e('Generated Menus', 'woocommerce-menu-generator'); ?></div>
+                    <div class="wmg-stat-label"><?php esc_html_e('Generated Menus', 'Woocommerce-Menu-Generator'); ?></div>
                 </div>
                 <div class="wmg-stat-card">
                     <div class="wmg-stat-number"><?php echo esc_html($stats['total_menu_items']); ?></div>
-                    <div class="wmg-stat-label"><?php _e('Menu Items', 'woocommerce-menu-generator'); ?></div>
+                    <div class="wmg-stat-label"><?php esc_html_e('Menu Items', 'Woocommerce-Menu-Generator'); ?></div>
                 </div>
                 <div class="wmg-stat-card">
                     <div class="wmg-stat-number"><?php echo esc_html($stats['total_categories']); ?></div>
-                    <div class="wmg-stat-label"><?php _e('Product Categories', 'woocommerce-menu-generator'); ?></div>
+                    <div class="wmg-stat-label"><?php esc_html_e('Product Categories', 'Woocommerce-Menu-Generator'); ?></div>
                 </div>
                 <?php do_action('wmg_statistics_extra_cards'); ?>
             </div>
@@ -153,22 +155,22 @@ function wmg_render_menu_page()
         <!-- Get started fast - Form first for new users -->
         <?php if (empty($my_menus)): ?>
         <div class="wmg-card">
-            <h2 class="wmg-card-heading"><?php _e('Create Your First Menu', 'woocommerce-menu-generator'); ?></h2>
+            <h2 class="wmg-card-heading"><?php esc_html_e('Create Your First Menu', 'Woocommerce-Menu-Generator'); ?></h2>
             <form id="menu-generator-form" class="wmg-form">
                 <div class="wmg-field-row">
-                    <label for="menu-name" class="wmg-label"><?php _e('Menu Name:', 'woocommerce-menu-generator'); ?></label>
-                    <input type="text" id="menu-name" name="menu-name" class="wmg-input" placeholder="<?php esc_attr_e('Enter menu name', 'woocommerce-menu-generator'); ?>" required>
+                    <label for="menu-name" class="wmg-label"><?php esc_html_e('Menu Name:', 'Woocommerce-Menu-Generator'); ?></label>
+                    <input type="text" id="menu-name" name="menu-name" class="wmg-input" placeholder="<?php esc_attr_e('Enter menu name', 'Woocommerce-Menu-Generator'); ?>" required>
                 </div>
                 
                 <div class="wmg-field-row">
-                    <label for="menu-depth" class="wmg-label"><?php _e('Menu Depth:', 'woocommerce-menu-generator'); ?></label>
+                    <label for="menu-depth" class="wmg-label"><?php esc_html_e('Menu Depth:', 'Woocommerce-Menu-Generator'); ?></label>
                     <select id="menu-depth" name="menu-depth" class="wmg-input">
-                        <option value="0"><?php _e('All levels (unlimited depth)', 'woocommerce-menu-generator'); ?></option>
-                        <option value="1"><?php _e('Top level categories only', 'woocommerce-menu-generator'); ?></option>
-                        <option value="2"><?php _e('Top level + one subcategory level', 'woocommerce-menu-generator'); ?></option>
-                        <option value="3"><?php _e('Top level + two subcategory levels', 'woocommerce-menu-generator'); ?></option>
+                        <option value="0"><?php esc_html_e('All levels (unlimited depth)', 'Woocommerce-Menu-Generator'); ?></option>
+                        <option value="1"><?php esc_html_e('Top level categories only', 'Woocommerce-Menu-Generator'); ?></option>
+                        <option value="2"><?php esc_html_e('Top level + one subcategory level', 'Woocommerce-Menu-Generator'); ?></option>
+                        <option value="3"><?php esc_html_e('Top level + two subcategory levels', 'Woocommerce-Menu-Generator'); ?></option>
                     </select>
-                    <p class="wmg-field-description"><?php _e('Select how many levels of subcategories to include in the menu.', 'woocommerce-menu-generator'); ?></p>
+                    <p class="wmg-field-description"><?php esc_html_e('Select how many levels of subcategories to include in the menu.', 'Woocommerce-Menu-Generator'); ?></p>
                 </div>
                 
                 <?php 
@@ -199,7 +201,7 @@ function wmg_render_menu_page()
                 <?php endforeach; ?>
                 
                 <div class="wmg-submit-row">
-                    <button type="submit" id="generate-menu" class="button button-primary"><?php _e('Generate Menu', 'woocommerce-menu-generator'); ?></button>
+                    <button type="submit" id="generate-menu" class="button button-primary"><?php esc_html_e('Generate Menu', 'Woocommerce-Menu-Generator'); ?></button>
                     <div id="loading-new" class="wmg-loading"></div>
                 </div>
             </form>
@@ -208,7 +210,7 @@ function wmg_render_menu_page()
         
         <!-- Instructions Section -->
         <div class="wmg-card wmg-instructions">
-            <h2 class="wmg-card-heading"><?php _e('How to Use', 'woocommerce-menu-generator'); ?></h2>
+            <h2 class="wmg-card-heading"><?php esc_html_e('How to Use', 'Woocommerce-Menu-Generator'); ?></h2>
             <div class="wmg-notice">
                 <?php echo wp_kses_post(apply_filters('wmg_instructions_intro', __('This plugin helps you automatically generate WordPress navigation menus from your WooCommerce product categories.', 'woocommerce-menu-generator'))); ?>
             </div>
@@ -234,11 +236,11 @@ function wmg_render_menu_page()
         <?php if (!empty($my_menus)): ?>
         <!-- Existing Menus Section -->
         <div class="wmg-card">
-            <h2 class="wmg-card-heading"><?php _e('Your Generated Menus', 'woocommerce-menu-generator'); ?></h2>
+            <h2 class="wmg-card-heading"><?php esc_html_e('Your Generated Menus', 'Woocommerce-Menu-Generator'); ?></h2>
             
             <div class="wmg-bulk-actions">
                 <select id="wmg-bulk-action">
-                    <option value=""><?php _e('Bulk Actions', 'woocommerce-menu-generator'); ?></option>
+                    <option value=""><?php esc_html_e('Bulk Actions', 'Woocommerce-Menu-Generator'); ?></option>
                     <?php 
                     $bulk_actions = apply_filters('wmg_bulk_actions', array(
                         'delete' => __('Delete', 'woocommerce-menu-generator')
@@ -249,12 +251,12 @@ function wmg_render_menu_page()
                         <option value="<?php echo esc_attr($action); ?>"><?php echo esc_html($label); ?></option>
                     <?php endforeach; ?>
                 </select>
-                <button id="wmg-bulk-apply" class="button wmg-action-button"><?php _e('Apply', 'woocommerce-menu-generator'); ?></button>
+                <button id="wmg-bulk-apply" class="button wmg-action-button"><?php esc_html_e('Apply', 'Woocommerce-Menu-Generator'); ?></button>
                 <span id="wmg-bulk-loading" class="wmg-loading"></span>
                 <div class="wmg-select-all-wrap">
                     <label>
                         <input type="checkbox" id="wmg-select-all" />
-                        <span><?php _e('Select All', 'woocommerce-menu-generator'); ?></span>
+                        <span><?php esc_html_e('Select All', 'Woocommerce-Menu-Generator'); ?></span>
                     </label>
                 </div>
             </div>
@@ -262,7 +264,7 @@ function wmg_render_menu_page()
             <table class="wmg-menus-table">
                 <thead>
                     <tr>
-                        <th class="wmg-checkbox-column"><span class="screen-reader-text"><?php _e('Select', 'woocommerce-menu-generator'); ?></span></th>
+                        <th class="wmg-checkbox-column"><span class="screen-reader-text"><?php esc_html_e('Select', 'Woocommerce-Menu-Generator'); ?></span></th>
                         <?php 
                         $table_headers = apply_filters('wmg_table_headers', array(
                             'id' => __('ID', 'woocommerce-menu-generator'),
@@ -298,11 +300,11 @@ function wmg_render_menu_page()
                                     do_action('wmg_before_menu_actions', $menu);
                                     ?>
                                     <a href="javascript:;" data-menu-id="<?php echo esc_attr($menu->id); ?>" class="wmg-action-button wmg-update-button update-menu">
-                                        <span class="dashicons dashicons-update"></span> <?php _e('Update', 'woocommerce-menu-generator'); ?>
+                                        <span class="dashicons dashicons-update"></span> <?php esc_html_e('Update', 'Woocommerce-Menu-Generator'); ?>
                                         <span id="loading-<?php echo esc_attr($menu->id); ?>" class="wmg-loading"></span>
                                     </a>
                                     <a href="javascript:;" data-menu-id="<?php echo esc_attr($menu->id); ?>" class="wmg-action-button wmg-delete-button delete-menu">
-                                        <span class="dashicons dashicons-trash"></span> <?php _e('Delete', 'woocommerce-menu-generator'); ?>
+                                        <span class="dashicons dashicons-trash"></span> <?php esc_html_e('Delete', 'Woocommerce-Menu-Generator'); ?>
                                     </a>
                                     <?php 
                                     // Allow plugins to add custom actions
@@ -325,22 +327,22 @@ function wmg_render_menu_page()
         <?php if (!empty($my_menus)): ?>
         <!-- Menu Generator Form -->
         <div class="wmg-card">
-            <h2 class="wmg-card-heading"><?php _e('Generate New Menu', 'woocommerce-menu-generator'); ?></h2>
+            <h2 class="wmg-card-heading"><?php esc_html_e('Generate New Menu', 'Woocommerce-Menu-Generator'); ?></h2>
             <form id="menu-generator-form" class="wmg-form">
                 <div class="wmg-field-row">
-                    <label for="menu-name" class="wmg-label"><?php _e('Menu Name:', 'woocommerce-menu-generator'); ?></label>
-                    <input type="text" id="menu-name" name="menu-name" class="wmg-input" placeholder="<?php esc_attr_e('Enter menu name', 'woocommerce-menu-generator'); ?>" required>
+                    <label for="menu-name" class="wmg-label"><?php esc_html_e('Menu Name:', 'Woocommerce-Menu-Generator'); ?></label>
+                    <input type="text" id="menu-name" name="menu-name" class="wmg-input" placeholder="<?php esc_attr_e('Enter menu name', 'Woocommerce-Menu-Generator'); ?>" required>
                 </div>
                 
                 <div class="wmg-field-row">
-                    <label for="menu-depth" class="wmg-label"><?php _e('Menu Depth:', 'woocommerce-menu-generator'); ?></label>
+                    <label for="menu-depth" class="wmg-label"><?php esc_html_e('Menu Depth:', 'Woocommerce-Menu-Generator'); ?></label>
                     <select id="menu-depth" name="menu-depth" class="wmg-input">
-                        <option value="0"><?php _e('All levels (unlimited depth)', 'woocommerce-menu-generator'); ?></option>
-                        <option value="1"><?php _e('Top level categories only', 'woocommerce-menu-generator'); ?></option>
-                        <option value="2"><?php _e('Top level + one subcategory level', 'woocommerce-menu-generator'); ?></option>
-                        <option value="3"><?php _e('Top level + two subcategory levels', 'woocommerce-menu-generator'); ?></option>
+                        <option value="0"><?php esc_html_e('All levels (unlimited depth)', 'Woocommerce-Menu-Generator'); ?></option>
+                        <option value="1"><?php esc_html_e('Top level categories only', 'Woocommerce-Menu-Generator'); ?></option>
+                        <option value="2"><?php esc_html_e('Top level + one subcategory level', 'Woocommerce-Menu-Generator'); ?></option>
+                        <option value="3"><?php esc_html_e('Top level + two subcategory levels', 'Woocommerce-Menu-Generator'); ?></option>
                     </select>
-                    <p class="wmg-field-description"><?php _e('Select how many levels of subcategories to include in the menu.', 'woocommerce-menu-generator'); ?></p>
+                    <p class="wmg-field-description"><?php esc_html_e('Select how many levels of subcategories to include in the menu.', 'Woocommerce-Menu-Generator'); ?></p>
                 </div>
                 
                 <?php 
@@ -371,7 +373,7 @@ function wmg_render_menu_page()
                 <?php endforeach; ?>
                 
                 <div class="wmg-submit-row">
-                    <button type="submit" id="generate-menu" class="button button-primary"><?php _e('Generate Menu', 'woocommerce-menu-generator'); ?></button>
+                    <button type="submit" id="generate-menu" class="button button-primary"><?php esc_html_e('Generate Menu', 'Woocommerce-Menu-Generator'); ?></button>
                     <div id="loading-new" class="wmg-loading"></div>
                 </div>
             </form>
@@ -664,23 +666,25 @@ function wmg_bulk_delete_menus() {
     update_option('woo_registered_menus_from_wmg', array_values($registered_menus));
     
     if ($deleted_count > 0) {
+        // Translators: %d is the number of menus that were deleted
         $message = sprintf(
             _n(
                 '%d menu has been deleted successfully.',
                 '%d menus have been deleted successfully.',
                 $deleted_count,
-                'woocommerce-menu-generator'
+                'Woocommerce-Menu-Generator'
             ),
             $deleted_count
         );
         
         if ($failed_count > 0) {
+            // Translators: %d is the number of menus that failed to delete
             $message .= ' ' . sprintf(
                 _n(
                     '%d menu could not be deleted.',
                     '%d menus could not be deleted.',
                     $failed_count,
-                    'woocommerce-menu-generator'
+                    'Woocommerce-Menu-Generator'
                 ),
                 $failed_count
             );
