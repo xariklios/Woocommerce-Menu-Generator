@@ -5,7 +5,15 @@
  * Description: A plugin to generate a new WordPress navigation menu with all WooCommerce categories as menu items.
  * Version: 1.0.0
  * Author: Your Name
+ * Text Domain: woocommerce-menu-generator
+ * Domain Path: /languages
  */
+
+// Load plugin text domain
+function wmg_load_textdomain() {
+    load_plugin_textdomain('woocommerce-menu-generator', false, dirname(plugin_basename(__FILE__)) . '/languages');
+}
+add_action('plugins_loaded', 'wmg_load_textdomain');
 
 /**
  * Enqueue scripts
@@ -19,8 +27,27 @@ function wmg_enqueue_scripts()
 
     $ajax_data = [
         'ajaxurl' => plugin_dir_url(__FILE__) . 'wmg-ajax.php',
-        'nonce' => wp_create_nonce('wmg-script-nonce')
+        'nonce' => wp_create_nonce('wmg-script-nonce'),
+        'error_messages' => [
+            'general' => __('An error occurred. Please try again.', 'woocommerce-menu-generator'),
+            'invalid_response' => __('Invalid response from server. Please try again.', 'woocommerce-menu-generator'),
+            'no_action' => __('Please select an action to perform.', 'woocommerce-menu-generator'),
+            'no_selection' => __('Please select at least one menu to perform this action.', 'woocommerce-menu-generator'),
+            'empty_name' => __('Please enter a menu name.', 'woocommerce-menu-generator'),
+            'delete' => __('An error occurred while deleting. Please try again.', 'woocommerce-menu-generator'),
+            'update' => __('An error occurred during update. Please try again.', 'woocommerce-menu-generator'),
+            'generate' => __('An error occurred during menu generation. Please try again.', 'woocommerce-menu-generator'),
+            'bulk_delete' => __('An error occurred during bulk delete. Please try again.', 'woocommerce-menu-generator')
+        ],
+        'confirm_messages' => [
+            'delete' => __('Are you sure you want to delete this menu? This action cannot be undone.', 'woocommerce-menu-generator'),
+            'update' => __('Are you sure you want to update this menu? This will regenerate all menu items.', 'woocommerce-menu-generator'),
+            'bulk_delete' => __('Are you sure you want to delete the selected menus? This action cannot be undone.', 'woocommerce-menu-generator')
+        ]
     ];
+
+    // Allow filtering of ajax data
+    $ajax_data = apply_filters('wmg_ajax_data', $ajax_data);
 
     wp_register_script('wmg_script', plugin_dir_url(__FILE__) . 'assets/js/script.js', array('jquery'), time(), true);
     wp_localize_script('wmg_script', 'wmg_ajax', $ajax_data);
@@ -37,8 +64,8 @@ function woocommerce_menu_generator_register_menu_page()
 {
     add_submenu_page(
         'woocommerce',
-        __('Woo Menu Generator', 'woo-menu-generator'),
-        __('Woo Menu Generator', 'woo-menu-generator'),
+        __('Woo Menu Generator', 'woocommerce-menu-generator'),
+        __('Woo Menu Generator', 'woocommerce-menu-generator'),
         'manage_options',
         'woo-menu-generator',
         'wmg_render_menu_page'
@@ -51,75 +78,287 @@ function woocommerce_menu_generator_register_menu_page()
  */
 function wmg_render_menu_page()
 {
-    $my_menus = get_option('woo_registered_menus_from_wmg');
+    $my_menus = get_option('woo_registered_menus_from_wmg', array());
 
     if (!current_user_can('manage_options')) {
-        wp_die(__('You do not have sufficient permissions to access this page.'));
+        wp_die(__('You do not have sufficient permissions to access this page.', 'woocommerce-menu-generator'));
     }
 
+    // Calculate statistics
+    $total_menus = count($my_menus);
+    $total_menu_items = 0;
+    $total_categories = count(get_terms(array('taxonomy' => 'product_cat', 'hide_empty' => false)));
+    
+    if (!empty($my_menus)) {
+        foreach ($my_menus as $menu) {
+            $menu_items = wp_get_nav_menu_items($menu['id']);
+            $total_menu_items += $menu_items ? count($menu_items) : 0;
+        }
+    }
+    
+    // Allow filtering of statistics
+    $stats = apply_filters('wmg_statistics', array(
+        'total_menus' => $total_menus,
+        'total_menu_items' => $total_menu_items,
+        'total_categories' => $total_categories
+    ));
+
 ?>
-    <div class="wrap">
-        <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
+    <div class="wrap wmg-container">
+        <!-- Simplified Loading Overlay -->
+        <div id="wmg-loading-overlay" class="wmg-loading-overlay">
+            <div class="wmg-loading-spinner"></div>
+            <div class="wmg-loading-text"><?php _e('Working Magic', 'woocommerce-menu-generator'); ?></div>
+            <div class="wmg-loading-subtext"><?php _e('Creating menus in progress...', 'woocommerce-menu-generator'); ?></div>
+        </div>
+        
+        <div class="wmg-header">
+            <h1 class="wmg-heading"><?php echo esc_html(get_admin_page_title()); ?> </h1>
+            <div class="wmg-docs-link">
+                <a href="<?php echo esc_url(plugin_dir_url(__FILE__) . 'hooks-documentation.html'); ?>" target="_blank" class="wmg-link">
+                    <?php _e('Developer Documentation', 'woocommerce-menu-generator'); ?>
+                    <span class="dashicons dashicons-external"></span>
+                </a>
+            </div>
+        </div>
+        
+        <!-- Success/Error Messages -->
+        <div id="wmg-success-message" class="wmg-message wmg-success-message"></div>
+        <div id="wmg-error-message" class="wmg-message wmg-error-message"></div>
+        
+        <?php do_action('wmg_before_statistics'); ?>
+        
+        <!-- Stats Section -->
+        <div class="wmg-stats">
+            <h2 class="wmg-stats-heading"><?php _e('Menu Statistics', 'woocommerce-menu-generator'); ?></h2>
+            <div class="wmg-stats-grid">
+                <div class="wmg-stat-card">
+                    <div class="wmg-stat-number"><?php echo esc_html($stats['total_menus']); ?></div>
+                    <div class="wmg-stat-label"><?php _e('Generated Menus', 'woocommerce-menu-generator'); ?></div>
+                </div>
+                <div class="wmg-stat-card">
+                    <div class="wmg-stat-number"><?php echo esc_html($stats['total_menu_items']); ?></div>
+                    <div class="wmg-stat-label"><?php _e('Menu Items', 'woocommerce-menu-generator'); ?></div>
+                </div>
+                <div class="wmg-stat-card">
+                    <div class="wmg-stat-number"><?php echo esc_html($stats['total_categories']); ?></div>
+                    <div class="wmg-stat-label"><?php _e('Product Categories', 'woocommerce-menu-generator'); ?></div>
+                </div>
+                <?php do_action('wmg_statistics_extra_cards'); ?>
+            </div>
+        </div>
+        
+        <?php do_action('wmg_after_statistics'); ?>
+        
+        <!-- Get started fast - Form first for new users -->
+        <?php if (empty($my_menus)): ?>
+        <div class="wmg-card">
+            <h2 class="wmg-card-heading"><?php _e('Create Your First Menu', 'woocommerce-menu-generator'); ?></h2>
+            <form id="menu-generator-form" class="wmg-form">
+                <div class="wmg-field-row">
+                    <label for="menu-name" class="wmg-label"><?php _e('Menu Name:', 'woocommerce-menu-generator'); ?></label>
+                    <input type="text" id="menu-name" name="menu-name" class="wmg-input" placeholder="<?php esc_attr_e('Enter menu name', 'woocommerce-menu-generator'); ?>" required>
+                </div>
+                
+                <?php 
+                // Allow plugins to add custom fields
+                do_action('wmg_form_fields'); 
+                
+                // Generate options for the form using a filter
+                $form_options = apply_filters('wmg_form_options', array(
+                    'skip_empty' => array(
+                        'id' => 'skip-empty',
+                        'name' => 'skip-empty',
+                        'label' => __('Skip empty categories', 'woocommerce-menu-generator'),
+                        'description' => __('Categories with no products will be excluded from the menu.', 'woocommerce-menu-generator')
+                    )
+                ));
+                
+                foreach ($form_options as $option): 
+                ?>
+                <div class="wmg-field-row">
+                    <label for="<?php echo esc_attr($option['id']); ?>" class="wmg-checkbox-label">
+                        <input type="checkbox" id="<?php echo esc_attr($option['id']); ?>" name="<?php echo esc_attr($option['name']); ?>" class="wmg-checkbox">
+                        <?php echo esc_html($option['label']); ?>
+                    </label>
+                    <?php if (!empty($option['description'])): ?>
+                        <p class="wmg-field-description"><?php echo esc_html($option['description']); ?></p>
+                    <?php endif; ?>
+                </div>
+                <?php endforeach; ?>
+                
+                <div class="wmg-submit-row">
+                    <button type="submit" id="generate-menu" class="button button-primary"><?php _e('Generate Menu', 'woocommerce-menu-generator'); ?></button>
+                    <div id="loading-new" class="wmg-loading"></div>
+                </div>
+            </form>
+        </div>
+        <?php endif; ?>
+        
+        <!-- Instructions Section -->
+        <div class="wmg-card wmg-instructions">
+            <h2 class="wmg-card-heading"><?php _e('How to Use', 'woocommerce-menu-generator'); ?></h2>
+            <div class="wmg-notice">
+                <?php echo wp_kses_post(apply_filters('wmg_instructions_intro', __('This plugin helps you automatically generate WordPress navigation menus from your WooCommerce product categories.', 'woocommerce-menu-generator'))); ?>
+            </div>
+            <?php 
+            $instructions = apply_filters('wmg_instructions_steps', array(
+                __('Enter a name for your new menu in the form below.', 'woocommerce-menu-generator'),
+                __('Check "Skip empty categories" if you want to exclude categories with no products.', 'woocommerce-menu-generator'),
+                __('Click "Generate Menu" to create your menu.', 'woocommerce-menu-generator'),
+                __('Your new menu will appear in the table below and will be available in Appearance > Menus.', 'woocommerce-menu-generator'),
+                __('You can update or delete your menus using the action buttons.', 'woocommerce-menu-generator')
+            ));
+            ?>
+            <ol>
+                <?php foreach ($instructions as $step): ?>
+                    <li><?php echo wp_kses_post($step); ?></li>
+                <?php endforeach; ?>
+            </ol>
+            <?php do_action('wmg_after_instructions_list'); ?>
+        </div>
+
+        <?php do_action('wmg_before_menus_table'); ?>
 
         <?php if (!empty($my_menus)): ?>
-            <div id="my-menus">
-                <table>
+        <!-- Existing Menus Section -->
+        <div class="wmg-card">
+            <h2 class="wmg-card-heading"><?php _e('Your Generated Menus', 'woocommerce-menu-generator'); ?></h2>
+            
+            <div class="wmg-bulk-actions">
+                <select id="wmg-bulk-action">
+                    <option value=""><?php _e('Bulk Actions', 'woocommerce-menu-generator'); ?></option>
+                    <?php 
+                    $bulk_actions = apply_filters('wmg_bulk_actions', array(
+                        'delete' => __('Delete', 'woocommerce-menu-generator')
+                    ));
+                    
+                    foreach ($bulk_actions as $action => $label): 
+                    ?>
+                        <option value="<?php echo esc_attr($action); ?>"><?php echo esc_html($label); ?></option>
+                    <?php endforeach; ?>
+                </select>
+                <button id="wmg-bulk-apply" class="button wmg-action-button"><?php _e('Apply', 'woocommerce-menu-generator'); ?></button>
+                <span id="wmg-bulk-loading" class="wmg-loading"></span>
+                <div class="wmg-select-all-wrap">
+                    <label>
+                        <input type="checkbox" id="wmg-select-all" />
+                        <span><?php _e('Select All', 'woocommerce-menu-generator'); ?></span>
+                    </label>
+                </div>
+            </div>
+            
+            <table class="wmg-menus-table">
+                <thead>
                     <tr>
-                        <th>Id</th>
-                        <th>Name</th>
-                        <th>Actions</th>
+                        <th class="wmg-checkbox-column"><span class="screen-reader-text"><?php _e('Select', 'woocommerce-menu-generator'); ?></span></th>
+                        <?php 
+                        $table_headers = apply_filters('wmg_table_headers', array(
+                            'id' => __('ID', 'woocommerce-menu-generator'),
+                            'name' => __('Name', 'woocommerce-menu-generator'),
+                            'items' => __('Items', 'woocommerce-menu-generator'),
+                            'actions' => __('Actions', 'woocommerce-menu-generator')
+                        ));
+                        
+                        foreach ($table_headers as $id => $header): 
+                        ?>
+                            <th class="wmg-column-<?php echo esc_attr($id); ?>"><?php echo esc_html($header); ?></th>
+                        <?php endforeach; ?>
                     </tr>
-
-                    <?php foreach ($my_menus as $menu): $menu = (object)$menu; ?>
+                </thead>
+                <tbody>
+                    <?php 
+                    foreach ($my_menus as $menu): 
+                        $menu = (object)$menu; 
+                        $menu_items_count = wp_get_nav_menu_items($menu->id) ? count(wp_get_nav_menu_items($menu->id)) : 0;
+                        
+                        // Allow plugins to skip showing certain menus
+                        if (apply_filters('wmg_should_display_menu', true, $menu)) :
+                    ?>
                         <tr>
+                            <td><input type="checkbox" class="wmg-menu-checkbox" value="<?php echo esc_attr($menu->id); ?>" /></td>
+                            <td><?php echo esc_html($menu->id); ?></td>
+                            <td><?php echo esc_html($menu->name); ?></td>
+                            <td><?php echo esc_html($menu_items_count); ?></td>
                             <td>
-                                <?php echo $menu->id ?>
-                            </td>
-                            <td>
-                                <?php echo $menu->name ?>
-                            </td>
-                            <td>
-                                <table>
-                                    <tr>
-                                        <td>
-                                            <a href="javascript:;" data-menu-id="<?php echo $menu->id ?>"
-                                                class="update-menu">Update</a>
-                                        </td>
-                                        <td>
-                                            <a href="javascript:;" data-menu-id="<?php echo $menu->id ?>"
-                                                class="delete-menu">Delete</a>
-                                        </td>
-                                    </tr>
-                                </table>
+                                <div class="wmg-actions">
+                                    <?php 
+                                    // Allow plugins to add custom actions
+                                    do_action('wmg_before_menu_actions', $menu);
+                                    ?>
+                                    <a href="javascript:;" data-menu-id="<?php echo esc_attr($menu->id); ?>" class="wmg-action-button wmg-update-button update-menu">
+                                        <span class="dashicons dashicons-update"></span> <?php _e('Update', 'woocommerce-menu-generator'); ?>
+                                        <span id="loading-<?php echo esc_attr($menu->id); ?>" class="wmg-loading"></span>
+                                    </a>
+                                    <a href="javascript:;" data-menu-id="<?php echo esc_attr($menu->id); ?>" class="wmg-action-button wmg-delete-button delete-menu">
+                                        <span class="dashicons dashicons-trash"></span> <?php _e('Delete', 'woocommerce-menu-generator'); ?>
+                                    </a>
+                                    <?php 
+                                    // Allow plugins to add custom actions
+                                    do_action('wmg_after_menu_actions', $menu);
+                                    ?>
+                                </div>
                             </td>
                         </tr>
-                    <?php endforeach; ?>
-                </table>
-            </div>
-        <?php endif; ?>
-        <form method="post" action="options.php">
-            <?php
-            //            settings_fields('woocommerce_menu_generator_settings');
-            //            do_settings_sections('woocommerce_menu_generator_settings');
-            //            settings_errors('woocommerce_menu_generator_settings');
-            ?>
-            <table class="form-table">
-                <tr>
-                    <th><?php esc_html_e('Menu Name', 'woocommerce-menu-generator'); ?></th>
-                    <td><input type="text" id="wmg_menu_name" name="wmg_menu_name"
-                            value="" />
-                    </td>
-                </tr>
-                <tr>
-                    <th><?php esc_html_e('Skip empty categories', 'woocommerce-menu-generator'); ?></th>
-                    <td><input type="checkbox" id="wmg_skip_empty" name="wmg_skip_empty" />
-                    </td>
-                </tr>
+                    <?php 
+                        endif;
+                    endforeach; 
+                    ?>
+                </tbody>
             </table>
-            <input type="submit" id="wmg_submit" class="button button-primary" value="Generate Menu">
-        </form>
+        </div>
+        <?php endif; ?>
+        
+        <?php do_action('wmg_before_generator_form'); ?>
+        
+        <?php if (!empty($my_menus)): ?>
+        <!-- Menu Generator Form -->
+        <div class="wmg-card">
+            <h2 class="wmg-card-heading"><?php _e('Generate New Menu', 'woocommerce-menu-generator'); ?></h2>
+            <form id="menu-generator-form" class="wmg-form">
+                <div class="wmg-field-row">
+                    <label for="menu-name" class="wmg-label"><?php _e('Menu Name:', 'woocommerce-menu-generator'); ?></label>
+                    <input type="text" id="menu-name" name="menu-name" class="wmg-input" placeholder="<?php esc_attr_e('Enter menu name', 'woocommerce-menu-generator'); ?>" required>
+                </div>
+                
+                <?php 
+                // Allow plugins to add custom fields
+                do_action('wmg_form_fields'); 
+                
+                // Generate options for the form using a filter
+                $form_options = apply_filters('wmg_form_options', array(
+                    'skip_empty' => array(
+                        'id' => 'skip-empty',
+                        'name' => 'skip-empty',
+                        'label' => __('Skip empty categories', 'woocommerce-menu-generator'),
+                        'description' => __('Categories with no products will be excluded from the menu.', 'woocommerce-menu-generator')
+                    )
+                ));
+                
+                foreach ($form_options as $option): 
+                ?>
+                <div class="wmg-field-row">
+                    <label for="<?php echo esc_attr($option['id']); ?>" class="wmg-checkbox-label">
+                        <input type="checkbox" id="<?php echo esc_attr($option['id']); ?>" name="<?php echo esc_attr($option['name']); ?>" class="wmg-checkbox">
+                        <?php echo esc_html($option['label']); ?>
+                    </label>
+                    <?php if (!empty($option['description'])): ?>
+                        <p class="wmg-field-description"><?php echo esc_html($option['description']); ?></p>
+                    <?php endif; ?>
+                </div>
+                <?php endforeach; ?>
+                
+                <div class="wmg-submit-row">
+                    <button type="submit" id="generate-menu" class="button button-primary"><?php _e('Generate Menu', 'woocommerce-menu-generator'); ?></button>
+                    <div id="loading-new" class="wmg-loading"></div>
+                </div>
+            </form>
+        </div>
+        <?php endif; ?>
+        
+        <?php do_action('wmg_after_generator_form'); ?>
     </div>
-<?php
+    <?php
 }
 
 /**
@@ -191,7 +430,8 @@ function wmg_generate_menu()
 
         wmg_add_items_to_menu($menu_id, $skip_empty);
 
-        wp_send_json_success('Menu has been created successfully.', 200);
+        $msg = sprintf(__('Menu "%s" has been successfully created.', 'woocommerce-menu-generator'), $menu_name);
+        wp_send_json_success($msg, 200);
     else:
         wp_send_json_error('Enter a menu name', 400);
     endif;
@@ -269,26 +509,43 @@ function wmg_delete_menu()
         wp_die('Unauthorized request. Go away!');
     }
 
+    // Initialize to false before we try to delete
+    $deleted = false;
+    $deleted_menu_name = '';
+
     if (isset($_POST['menu_id'])) {
-        $deleted = wp_delete_nav_menu($_POST['menu_id']);
-        $registered_menus = get_option('woo_registered_menus_from_wmg');
-        $deleted_menu_name = '';
-
+        $menu_id = intval($_POST['menu_id']);
+        
+        // Check if the menu exists before attempting to delete
+        $menu_object = wp_get_nav_menu_object($menu_id);
+        if (!$menu_object) {
+            wp_send_json_error('Menu does not exist or has already been deleted.', 400);
+            return;
+        }
+        
+        $deleted = wp_delete_nav_menu($menu_id);
+        $registered_menus = get_option('woo_registered_menus_from_wmg', array());
+        
         foreach ($registered_menus as $index => $registered_menu) {
-
-            if ($registered_menu['id'] == $_POST['menu_id']) {
+            if ($registered_menu['id'] == $menu_id) {
                 unset($registered_menus[$index]);
                 $deleted_menu_name = $registered_menu['name'];
+                break;
             }
         }
-        update_option('woo_registered_menus_from_wmg', $registered_menus);
+        
+        // Update registered menus option with re-indexed array
+        update_option('woo_registered_menus_from_wmg', array_values($registered_menus));
+    } else {
+        wp_send_json_error('No menu ID specified.', 400);
+        return;
     }
 
     if ($deleted) {
-        $msg = 'Menu ' . $deleted_menu_name . ' Successfully deleted';
+        $msg = sprintf(__('Menu "%s" has been successfully deleted.', 'woocommerce-menu-generator'), $deleted_menu_name);
         wp_send_json_success($msg, 200);
     } else {
-        wp_send_json_error('error', 400);
+        wp_send_json_error('Failed to delete menu. It may have already been deleted or does not exist.', 400);
     }
 }
 
@@ -300,7 +557,14 @@ function wmg_update_menu()
     endif;
 
     if (isset($_POST['menu_id'])):
-        $menu = wp_get_nav_menu_object($_POST['menu_id']);
+        $menu_id = intval($_POST['menu_id']);
+        
+        // Check if the menu exists before attempting to update
+        $menu = wp_get_nav_menu_object($menu_id);
+        if (!$menu) {
+            wp_send_json_error('Menu does not exist or has already been deleted.', 400);
+            return;
+        }
 
         // Get all the menu items
         $menu_items = wp_get_nav_menu_items($menu->name);
@@ -310,12 +574,83 @@ function wmg_update_menu()
             wp_delete_post($menu_item->ID, true);
         }
 
-        wmg_add_items_to_menu($_POST['menu_id']);
-        $msg = 'Menu ' . $_POST['menu_id'] . ' Successfully updated';
+        wmg_add_items_to_menu($menu_id);
+        $msg = sprintf(__('Menu "%s" has been successfully updated.', 'woocommerce-menu-generator'), $menu->name);
         wp_send_json_success($msg, 200);
     endif;
 
     wp_send_json_error('Update terminated unsuccessfully', 400);
+}
+
+/**
+ * Bulk Delete Menus
+ * @since    1.0.0
+ */
+function wmg_bulk_delete_menus() {
+    if (!isset($_POST['nonce_ajax']) || !wp_verify_nonce($_POST['nonce_ajax'], 'wmg-script-nonce')) {
+        wp_die('Unauthorized request. Go away!');
+    }
+
+    if (!isset($_POST['menu_ids']) || !is_array($_POST['menu_ids'])) {
+        wp_send_json_error('No menus selected for deletion.', 400);
+        return;
+    }
+
+    $menu_ids = array_map('intval', $_POST['menu_ids']);
+    $registered_menus = get_option('woo_registered_menus_from_wmg', array());
+    $deleted_count = 0;
+    $failed_count = 0;
+    $deleted_menu_names = array();
+
+    foreach ($menu_ids as $menu_id) {
+        $deleted = wp_delete_nav_menu($menu_id);
+        
+        if ($deleted) {
+            $deleted_count++;
+            
+            // Remove from our registered menus
+            foreach ($registered_menus as $index => $registered_menu) {
+                if ($registered_menu['id'] == $menu_id) {
+                    $deleted_menu_names[] = $registered_menu['name'];
+                    unset($registered_menus[$index]);
+                    break;
+                }
+            }
+        } else {
+            $failed_count++;
+        }
+    }
+    
+    // Update the registered menus option
+    update_option('woo_registered_menus_from_wmg', array_values($registered_menus));
+    
+    if ($deleted_count > 0) {
+        $message = sprintf(
+            _n(
+                '%d menu has been deleted successfully.',
+                '%d menus have been deleted successfully.',
+                $deleted_count,
+                'woocommerce-menu-generator'
+            ),
+            $deleted_count
+        );
+        
+        if ($failed_count > 0) {
+            $message .= ' ' . sprintf(
+                _n(
+                    '%d menu could not be deleted.',
+                    '%d menus could not be deleted.',
+                    $failed_count,
+                    'woocommerce-menu-generator'
+                ),
+                $failed_count
+            );
+        }
+        
+        wp_send_json_success($message, 200);
+    } else {
+        wp_send_json_error('No menus were deleted. Please try again.', 400);
+    }
 }
 
 /**
@@ -328,6 +663,7 @@ function run()
     add_action('wmg_ajax_delete_menu', 'wmg_delete_menu');
     add_action('wmg_ajax_update_menu', 'wmg_update_menu');
     add_action('wmg_ajax_generate_menu', 'wmg_generate_menu');
+    add_action('wmg_ajax_bulk_delete_menus', 'wmg_bulk_delete_menus');
 }
 
 run();
